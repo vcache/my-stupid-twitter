@@ -111,9 +111,8 @@ while working:
 	if link_sel >= len(links): link_sel = 0
 	while time() - last_check < 60 * 2:
 		lnk = links[link_sel] if len(links) > 0 else ('', '')
-		sys.stdout.write('\r[E(\033[36mx\033[0m)it%s%s] %s\033[K' % (
-			(', (' + str(link_sel+1) + '/' + str(len(links)) + ')') if len(links) > 0 else '',
-			(' \033[4m@' + lnk[0] + '\033[0m \033[1m' + lnk[1] + '\033[0m') if len(links) > 0 else '',
+		sys.stdout.write('\r[%s] %s\033[K' % (
+			(str(link_sel+1) + '/' + str(len(links)) + ': \033[4m@' + lnk[0] + '\033[0m \033[1m' + lnk[1] + '\033[0m') if len(links) > 0 else ' - ',
 			spinner[i % len(spinner)]))
 		sys.stdout.flush()
 		i += 1
