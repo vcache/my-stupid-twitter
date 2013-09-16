@@ -8,7 +8,7 @@
 
 from oauth import oauth
 from oauthtwitter import OAuthApi
-import select, sys, tty, os, re, webbrowser, pickle, curses, locale;
+import select, sys, tty, os, re, webbrowser, pickle, curses, locale, errno;
 from time import mktime, strptime, localtime, strftime, sleep, time
 
 if not __name__ == '__main__': exit(0)
@@ -154,7 +154,12 @@ while working:
 	stdscr.refresh()
 
 	# Wait and process keys input for around 2 minuts
-	ret = pollobj.poll(5000)
+	try:
+		ret = pollobj.poll(1000)
+	except: #IOError, e:
+		#if not e.errno == errno.EINTR: working = False
+		continue
+
 	if len(ret) > 0:
 		c = stdscr.getch()
 		if c in [ord('x'), ord('X')]:
