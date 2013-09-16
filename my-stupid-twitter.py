@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 #
 # Stupid console app for the Twitter by Igor Bereznyak.
 # Based on the 'oauth-python-twitter2' project. See http://code.google.com/p/oauth-python-twitter2/
@@ -7,14 +8,15 @@
 
 from oauth import oauth
 from oauthtwitter import OAuthApi
-import select, sys, tty, os, re, webbrowser, pickle;
+import select, sys, tty, os, re, webbrowser, pickle, curses, locale;
 from time import mktime, strptime, localtime, strftime, sleep, time
 
 if not __name__ == '__main__': exit(0)
 
-# Read config file
-
 config_fname = os.path.expanduser('~') + '/.my_stupid_twitter'
+tweets_fname = os.path.expanduser('~') + '/.my_stupid_twitts'
+
+# Read config file
 
 if os.path.exists(config_fname):
 	f = open(config_fname, 'rb')
@@ -52,92 +54,124 @@ twitter = OAuthApi(
 	config['oauth_token'],
 	config['oauth_token_secret'])
 
+# Load old tweets
+
+if os.path.exists(tweets_fname):
+	f = open(tweets_fname, 'rb')
+	tweets = pickle.load(f)
+	f.close()
+else:
+	tweets = []
+
 # Main loop
 
-showed = []
-maxNameLength = 0
+def addTweetsToLines(tweets, lines, max_username):
+	for tweet in tweets:
+		if tweet['user']['screen_name'] == 'aikawa_kozue': continue # TODO japanese characters breaks alignment
+		created_at = tweet['created_at'].split(' ') #Mon Sep 16 18:20:50 +0000 2013
+		time_at = created_at[3].split(':')
+		username = tweet['user']['screen_name']
+		tweet_text = tweet['text'].replace('\n', '') + ' // ' + tweet['user']['name'] + ' //'
+
+		line_blocks = [
+			['@' + username, curses.A_UNDERLINE | curses.color_pair(1)],
+			[reduce(lambda acc, i: acc + ' ', range(max_username - len(username)), ' '), curses.color_pair(2)],
+			['[', curses.color_pair(2)],
+			[created_at[2]+' '+created_at[1]+' ', curses.color_pair(4)],
+			[time_at[0]+':'+time_at[1], curses.color_pair(4) | curses.A_BOLD],
+			[']', curses.color_pair(2)],
+			[' ', curses.color_pair(2)],
+			[tweet_text, curses.color_pair(3)]]
+		line_blocks.reverse()
+		lines.append(line_blocks)
+
+locale.setlocale(locale.LC_ALL, '')
+code = locale.getpreferredencoding()
+
+maxNameLength = reduce(
+	lambda acc, i : len(i['user']['screen_name']) if len(i['user']['screen_name']) > acc else acc,
+	tweets, 0)
 pollobj = select.poll()
 pollobj.register(sys.stdin.fileno(), select.POLLIN)
-tty.setraw(sys.stdin.fileno())
 working = True
-spinner = ['*_*', '0_0', 'o_o', '._.', 'x_x']
-links = []
-i = 0
-link_sel = 0
+
+stdscr = curses.initscr()
+curses.start_color()
+curses.use_default_colors()
+curses.noecho()
+curses.cbreak()
+curses.curs_set(0)
+stdscr.keypad(1)
+stdscr.nodelay(1)
+curses.init_pair(1, curses.COLOR_BLACK, -1) # @username
+curses.init_pair(2, -1, -1) # whitespace
+curses.init_pair(3, curses.COLOR_MAGENTA, -1) # whitespace
+curses.init_pair(4, curses.COLOR_GREEN, -1) # whitespace
+
+cursor = 0
+first_tweet = 0
+last_check = 0
+lines = []
+addTweetsToLines(tweets, lines, maxNameLength)
+tweet_ids = map(lambda x : x['id_str'], tweets)
 
 while working:
-	# Get timeline
-	timeline = twitter.GetHomeTimeline()
-	timeline.reverse()
+	# Load new tweets
+	new_tweets = []
+	if time() - last_check >= 60 * 3:
+		timeline = twitter.GetHomeTimeline()
+		timeline.reverse()
 
-	# Calculate numbers
-	term_width = int(os.popen('stty size', 'r').read().split()[1]) -2
-	maxNameLength = reduce(
-		lambda acc, i : len(i['user']['screen_name']) if len(i['user']['screen_name']) > acc else acc,
-		timeline, maxNameLength)
-	text_prefix = reduce(lambda acc, i: acc + ' ', range(maxNameLength + 16), ' ')
-	text_length = term_width - len(text_prefix)
+		for t in timeline:
+			if not t['id_str'] in tweet_ids:
+				new_tweets.append(t)
+				tweets.append(t)
+				tweet_ids.append(t['id_str'])
+		last_check = time()
+
+	# Build lines
+	if len(new_tweets) > 0:
+		maxNameLength = reduce(
+			lambda acc, i : len(i['user']['screen_name']) if len(i['user']['screen_name']) > acc else acc,
+			new_tweets, maxNameLength)
+		addTweetsToLines(new_tweets, lines, maxNameLength)
 
 	# Output lines
-	for tweet in timeline:
-		if tweet['id_str'] in showed: continue
-		if tweet['user']['screen_name'] == 'aikawa_kozue': continue # TODO japanese characters breaks alignment
-		created_at = mktime(strptime(tweet['created_at'], '%a %b %d %H:%M:%S +0000 %Y'))
-		created_at += 60 * 60 * 4
-		username = tweet['user']['screen_name']
+	maxyx = stdscr.getmaxyx()
+	stdscr.erase()
+	for i in range(maxyx[0]):
+		tweet_index = first_tweet + i
+		if tweet_index >= len(lines): continue
+		sel_attr = curses.A_BOLD if i == cursor - first_tweet else 0
 
-		sys.stdout.write('\033[4m@%s\033[0m%s[\033[32m%s\033[0m] \033[35m' % (
-			username,
-			reduce(lambda acc, i: acc + ' ', range(maxNameLength - len(username)), ' '),
-			strftime('%d %b \033[1m%H:%M', localtime(created_at))))
-		
-		tweet_text = tweet['text'].replace('\n', '') + ('[RT]' if tweet['retweeted'] else '')
-		text = tweet_text
-		while not text == '':
-			sys.stdout.write(text[:text_length])
-			text = text[text_length:]
-			if not text == '': sys.stdout.write('\r\n' + text_prefix)
+		for blk in lines[tweet_index]:
+			stdscr.insstr(i, 0, blk[0].encode(code), blk[1] | sel_attr)
 
-		sys.stdout.write('\033[0m \r\n')
-
-		sys.stdout.flush()
-		showed.append(tweet['id_str'])
-		tweet_links = re.findall(r"(https?://[^\s]+)", tweet_text)
-		links += map(lambda x: (username, x), tweet_links)
+		if i == cursor - first_tweet:
+			stdscr.insstr(i, 0, "> ".encode(code), curses.A_BOLD)
+		else:
+			stdscr.insstr(i, 0, "  ".encode(code), 0)
+	stdscr.refresh()
 
 	# Wait and process keys input for around 2 minuts
-	last_check = time()
-	line_drawn = False
-	if link_sel >= len(links): link_sel = 0
-	while time() - last_check < 60 * 2:
-		lnk = links[link_sel] if len(links) > 0 else ('', '')
-		sys.stdout.write('\r[%s] %s\033[K' % (
-			(str(link_sel+1) + '/' + str(len(links)) + ': \033[4m@' + lnk[0] + '\033[0m \033[1m' + lnk[1] + '\033[0m') if len(links) > 0 else ' - ',
-			spinner[i % len(spinner)]))
-		sys.stdout.flush()
-		i += 1
-		ret = pollobj.poll(600)
-		if len(ret) > 0:
-			inp = sys.stdin.read(1)
-			if inp in ['x', 'X']:
-				working = False
-				break
-			elif inp == ' ' and not line_drawn:
-				sys.stdout.write('\r\033[33m%s\033[0m\r\n' % reduce(lambda x, y: x + '-', range(term_width), ''))
-				line_drawn = True
-			elif inp == '\033':
-				if sys.stdin.read(1) == '[':
-					k = sys.stdin.read(1)
-					if k == 'C':   link_sel += 1 # right
-					elif k == 'D': link_sel -= 1 # left
-			elif inp == '\r' and len(links) > 0:
-				webbrowser.open(links[link_sel][1], new=2, autoraise=True)
-				del links[link_sel]
-				link_sel -= 1
-			if link_sel >= len(links): link_sel = len(links)-1
-			if link_sel < 0: link_sel = 0
+	ret = pollobj.poll(5000)
+	if len(ret) > 0:
+		c = stdscr.getch()
+		if c in [ord('x'), ord('X')]:
+			working = False
+		elif c == curses.KEY_DOWN:
+			if cursor+1 < len(lines): cursor += 1
+		elif c == curses.KEY_UP:
+			if cursor > 0: cursor -= 1
 
-	sys.stdout.write('\r\033[K')
-	sys.stdout.flush()
+	if cursor >= first_tweet + maxyx[0]: first_tweet += maxyx[0] / 3
+	if cursor < first_tweet: first_tweet -= maxyx[0] / 3
 
-os.system('reset')
+curses.nocbreak()
+stdscr.keypad(0)
+curses.noecho()
+curses.endwin()
+
+f = open(tweets_fname, 'wb')
+pickle.dump(tweets, f)
+f.close()
