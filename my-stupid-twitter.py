@@ -4,7 +4,7 @@
 # Stupid console app for the Twitter by Igor Bereznyak.
 # Based on the 'oauth-python-twitter2' project. See http://code.google.com/p/oauth-python-twitter2/
 #
-#
+# TODO japanese characters breaks alignment
 
 from oauth import oauth
 from oauthtwitter import OAuthApi
@@ -67,7 +67,6 @@ else:
 
 def addTweetsToLines(tweets, lines, max_username):
 	for tweet in tweets:
-		if tweet['user']['screen_name'] == 'aikawa_kozue': continue # TODO japanese characters breaks alignment
 		created_at = tweet['created_at'].split(' ') #Mon Sep 16 18:20:50 +0000 2013
 		time_at = created_at[3].split(':')
 		username = tweet['user']['screen_name']
@@ -113,7 +112,7 @@ lines = []
 addTweetsToLines(tweets, lines, maxNameLength)
 tweet_ids = map(lambda x : x['id_str'], tweets)
 
-cursor = len(lines) - 1
+cursor = len(lines) - 1 if lines else 0
 
 while working:
 	# Load new tweets
@@ -154,11 +153,13 @@ while working:
 		else:
 			stdscr.insstr(i, 0, "  ".encode(code), 0)
 	
-	tweet_links = re.findall(r"(https?://[^\s]+)", lines[cursor][0][0])
+	#re.findall(r"(https?://[^\s]+)", lines[cursor][0][0])
+	tweet_urls = tweets[cursor]['entities']['urls'] if 'urls' in tweets[cursor]['entities'] else []
+	tweet_media = tweets[cursor]['entities']['media'] if 'media' in tweets[cursor]['entities'] else [] # 'media_url'
+	tweet_links = tweet_urls + tweet_media
 	if tweet_links:
-		status_line = tweet_links[0]
+		status_line = reduce(lambda x, y: x + ' | ' + y['expanded_url'], tweet_links, '')
 		stdscr.insstr(maxyx[0]-1, 0, status_line.encode(code), curses.A_REVERSE)
-		stdscr.insstr(maxyx[0]-1, 0, ': '.encode(code), curses.A_REVERSE | curses.A_BOLD)
 
 	status_line = '%d/%d' % (cursor + 1, len(lines))
 	stdscr.insstr(maxyx[0]-1, 0, status_line.encode(code), curses.A_REVERSE | curses.A_BOLD)
