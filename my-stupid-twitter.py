@@ -108,12 +108,12 @@ curses.init_pair(2, -1, -1) # whitespace
 curses.init_pair(3, curses.COLOR_MAGENTA, -1) # whitespace
 curses.init_pair(4, curses.COLOR_GREEN, -1) # whitespace
 
-cursor = 0
-first_tweet = 0
 last_check = 0
 lines = []
 addTweetsToLines(tweets, lines, maxNameLength)
 tweet_ids = map(lambda x : x['id_str'], tweets)
+
+cursor = len(lines) - 1
 
 while working:
 	# Load new tweets
@@ -138,6 +138,7 @@ while working:
 
 	# Output lines
 	maxyx = stdscr.getmaxyx()
+	first_tweet = int(round(cursor / maxyx[0]) * maxyx[0])
 	stdscr.erase()
 	for i in range(maxyx[0]):
 		tweet_index = first_tweet + i
@@ -168,9 +169,6 @@ while working:
 			if cursor+1 < len(lines): cursor += 1
 		elif c == curses.KEY_UP:
 			if cursor > 0: cursor -= 1
-
-	if cursor >= first_tweet + maxyx[0]: first_tweet += maxyx[0] / 3
-	if cursor < first_tweet: first_tweet -= maxyx[0] / 3
 
 curses.nocbreak()
 stdscr.keypad(0)
