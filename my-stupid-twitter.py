@@ -166,9 +166,20 @@ while working:
 		if c in [ord('x'), ord('X')]:
 			working = False
 		elif c == curses.KEY_DOWN:
-			if cursor+1 < len(lines): cursor += 1
+			cursor += 1
 		elif c == curses.KEY_UP:
-			if cursor > 0: cursor -= 1
+			cursor -= 1
+		elif c == curses.KEY_HOME:
+			cursor = 0
+		elif c == curses.KEY_END:
+			cursor = len(lines) - 1
+		elif c == curses.KEY_NPAGE:
+			cursor += maxyx[0]
+		elif c == curses.KEY_PPAGE:
+			cursor -= maxyx[0]
+
+		if cursor < 0: cursor = 0
+		if cursor >= len(lines): cursor = len(lines) - 1
 
 curses.nocbreak()
 stdscr.keypad(0)
