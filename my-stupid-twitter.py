@@ -138,9 +138,10 @@ while working:
 
 	# Output lines
 	maxyx = stdscr.getmaxyx()
-	first_tweet = int(round(cursor / maxyx[0]) * maxyx[0])
+	tweets_in_screen = maxyx[0] - 1
+	first_tweet = int(round(cursor / tweets_in_screen) * tweets_in_screen)
 	stdscr.erase()
-	for i in range(maxyx[0]):
+	for i in range(tweets_in_screen):
 		tweet_index = first_tweet + i
 		if tweet_index >= len(lines): continue
 		sel_attr = curses.A_BOLD if i == cursor - first_tweet else 0
@@ -152,6 +153,16 @@ while working:
 			stdscr.insstr(i, 0, "> ".encode(code), curses.A_BOLD)
 		else:
 			stdscr.insstr(i, 0, "  ".encode(code), 0)
+	
+	tweet_links = re.findall(r"(https?://[^\s]+)", lines[cursor][0][0])
+	if tweet_links:
+		status_line = tweet_links[0]
+		stdscr.insstr(maxyx[0]-1, 0, status_line.encode(code), curses.A_REVERSE)
+		stdscr.insstr(maxyx[0]-1, 0, ': '.encode(code), curses.A_REVERSE | curses.A_BOLD)
+
+	status_line = '%d/%d' % (cursor + 1, len(lines))
+	stdscr.insstr(maxyx[0]-1, 0, status_line.encode(code), curses.A_REVERSE | curses.A_BOLD)
+
 	stdscr.refresh()
 
 	# Wait and process keys input for around 2 minuts
@@ -174,9 +185,9 @@ while working:
 		elif c == curses.KEY_END:
 			cursor = len(lines) - 1
 		elif c == curses.KEY_NPAGE:
-			cursor += maxyx[0]
+			cursor += tweets_in_screen
 		elif c == curses.KEY_PPAGE:
-			cursor -= maxyx[0]
+			cursor -= tweets_in_screen
 
 		if cursor < 0: cursor = 0
 		if cursor >= len(lines): cursor = len(lines) - 1
