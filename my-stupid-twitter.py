@@ -123,6 +123,7 @@ while working:
 
 		for t in timeline:
 			if not t['id_str'] in tweet_ids:
+				t['__mst_readed__'] = False
 				new_tweets.append(t)
 				tweets.append(t)
 				tweet_ids.append(t['id_str'])
@@ -143,13 +144,19 @@ while working:
 	for i in range(tweets_in_screen):
 		tweet_index = first_tweet + i
 		if tweet_index >= len(lines): continue
-		sel_attr = curses.A_BOLD if i == cursor - first_tweet else 0
+		tweet = tweets[tweet_index]
+		selAttr = curses.A_BOLD if \
+			i == cursor-first_tweet or \
+			not '__mst_readed__' in tweet or \
+			not tweet['__mst_readed__'] \
+			else 0
 
 		for blk in lines[tweet_index]:
-			stdscr.insstr(i, 0, blk[0].encode(code), blk[1] | sel_attr)
+			stdscr.insstr(i, 0, blk[0].encode(code), blk[1] | selAttr)
 
 		if i == cursor - first_tweet:
 			stdscr.insstr(i, 0, "> ".encode(code), curses.A_BOLD)
+			tweets[tweet_index]['__mst_readed__'] = True
 		else:
 			stdscr.insstr(i, 0, "  ".encode(code), 0)
 	
