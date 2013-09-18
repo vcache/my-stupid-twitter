@@ -154,15 +154,23 @@ while working:
 			stdscr.insstr(i, 0, "  ".encode(code), 0)
 	
 	#re.findall(r"(https?://[^\s]+)", lines[cursor][0][0])
+	status_len = 0
 	tweet_urls = tweets[cursor]['entities']['urls'] if 'urls' in tweets[cursor]['entities'] else []
 	tweet_media = tweets[cursor]['entities']['media'] if 'media' in tweets[cursor]['entities'] else [] # 'media_url'
 	tweet_links = tweet_urls + tweet_media
 	if tweet_links:
 		status_line = reduce(lambda x, y: x + ' | ' + y['expanded_url'], tweet_links, '')
-		stdscr.insstr(maxyx[0]-1, 0, status_line.encode(code), curses.A_REVERSE)
+		status_line_enc = status_line.encode(code)
+		status_len += len(status_line_enc)
+		stdscr.insstr(maxyx[0]-1, 0, status_line_enc, curses.A_REVERSE)
 
 	status_line = '%d/%d' % (cursor + 1, len(lines))
-	stdscr.insstr(maxyx[0]-1, 0, status_line.encode(code), curses.A_REVERSE | curses.A_BOLD)
+	status_line_enc = status_line.encode(code)
+	status_len += len(status_line_enc)
+	stdscr.insstr(maxyx[0]-1, 0, status_line_enc, curses.A_REVERSE | curses.A_BOLD)
+
+	status_line = reduce(lambda x, y: x + ' ', range(maxyx[1] - status_len), '')
+	stdscr.insstr(maxyx[0]-1, status_len, status_line, curses.A_REVERSE)
 
 	stdscr.refresh()
 
