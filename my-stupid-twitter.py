@@ -155,7 +155,7 @@ while working:
 			tweets[tweet_index]['__mst_readed__'] = True
 		else:
 			prefix = "  " if tweet['__mst_readed__'] else "* "
-			stdscr.insstr(i, 0, prefix.encode(code), A_BOLD)
+			stdscr.insstr(i, 0, prefix.encode(code), curses.A_BOLD)
 	
 	#re.findall(r"(https?://[^\s]+)", lines[cursor][0][0])
 	status_len = 0
