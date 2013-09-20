@@ -113,6 +113,7 @@ addTweetsToLines(tweets, lines, maxNameLength)
 tweet_ids = map(lambda x : x['id_str'], tweets)
 
 cursor = len(lines) - 1 if lines else 0
+link_cursor = 0
 
 while working:
 	# Load new tweets
@@ -145,12 +146,7 @@ while working:
 		tweet_index = first_tweet + i
 		if tweet_index >= len(lines): continue
 		tweet = tweets[tweet_index]
-		selAttr = curses.A_BOLD if \
-			i == cursor-first_tweet or \
-			not '__mst_readed__' in tweet or \
-			not tweet['__mst_readed__'] \
-			else 0
-
+		selAttr = curses.A_BOLD if i == cursor-first_tweet else 0
 		for blk in lines[tweet_index]:
 			stdscr.insstr(i, 0, blk[0].encode(code), blk[1] | selAttr)
 
@@ -158,7 +154,8 @@ while working:
 			stdscr.insstr(i, 0, "> ".encode(code), curses.A_BOLD)
 			tweets[tweet_index]['__mst_readed__'] = True
 		else:
-			stdscr.insstr(i, 0, "  ".encode(code), 0)
+			prefix = "  " if tweet['__mst_readed__'] else "* "
+			stdscr.insstr(i, 0, prefix.encode(code), A_BOLD)
 	
 	#re.findall(r"(https?://[^\s]+)", lines[cursor][0][0])
 	status_len = 0
