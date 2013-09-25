@@ -74,7 +74,7 @@ def addTweetsToLines(tweets, lines, max_username):
 
 		line_blocks = [
 			['@' + username, curses.A_UNDERLINE | curses.color_pair(1)],
-			[reduce(lambda acc, i: acc + ' ', range(max_username - len(username)), ' '), curses.color_pair(2)],
+			[' ' * (max_username - len(username)), curses.color_pair(2)],
 			['[', curses.color_pair(2)],
 			[created_at[2]+' '+created_at[1]+' ', curses.color_pair(4)],
 			[time_at[0]+':'+time_at[1], curses.color_pair(4) | curses.A_BOLD],
@@ -83,6 +83,10 @@ def addTweetsToLines(tweets, lines, max_username):
 			[tweet_text, curses.color_pair(3)]]
 		line_blocks.reverse()
 		lines.append(line_blocks)
+
+def openLink(link):
+	if link[-4:] in ('.png', '.jpg', 'jpeg', '.bmp', '.gif'):
+		pass
 
 locale.setlocale(locale.LC_ALL, '')
 code = locale.getpreferredencoding()
@@ -157,23 +161,29 @@ while working:
 			prefix = "  " if tweet['__mst_readed__'] else "* "
 			stdscr.insstr(i, 0, prefix.encode(code), curses.A_BOLD)
 	
-	#re.findall(r"(https?://[^\s]+)", lines[cursor][0][0])
+	# Grab media and links from current tweet
+	selected_tweet = tweets[cursor]
+	links = []
+	if 'urls' in selected_tweet['entities']:
+		for url in selected_tweet['entities']['urls']:
+			links.append(url['expanded_url'])
+	if 'media' in selected_tweet['entities']:
+		for media in selected_tweet['entities']['media']:
+			links.append(media['media_url'])
+
+	# Output status line
 	status_len = 0
-	tweet_urls = tweets[cursor]['entities']['urls'] if 'urls' in tweets[cursor]['entities'] else []
-	tweet_media = tweets[cursor]['entities']['media'] if 'media' in tweets[cursor]['entities'] else [] # 'media_url'
-	tweet_links = tweet_urls + tweet_media
-	if tweet_links:
-		status_line = reduce(lambda x, y: x + ' | ' + y['expanded_url'], tweet_links, '')
-		status_line_enc = status_line.encode(code)
-		status_len += len(status_line_enc)
-		stdscr.insstr(maxyx[0]-1, 0, status_line_enc, curses.A_REVERSE)
+	if links:
+		status_line = reduce(lambda x, y: x + ' | ' + y, links, '').encode(code)
+		status_len += len(status_line)
+		stdscr.insstr(maxyx[0]-1, 0, status_line, curses.A_REVERSE)
 
 	status_line = '%d/%d' % (cursor + 1, len(lines))
 	status_line_enc = status_line.encode(code)
 	status_len += len(status_line_enc)
 	stdscr.insstr(maxyx[0]-1, 0, status_line_enc, curses.A_REVERSE | curses.A_BOLD)
 
-	status_line = reduce(lambda x, y: x + ' ', range(maxyx[1] - status_len), '')
+	status_line = ' ' * (maxyx[1] - status_len)
 	stdscr.insstr(maxyx[0]-1, status_len, status_line, curses.A_REVERSE)
 
 	stdscr.refresh()
@@ -201,6 +211,9 @@ while working:
 			cursor += tweets_in_screen
 		elif c == curses.KEY_PPAGE:
 			cursor -= tweets_in_screen
+		elif c == ord(' ') and links:
+			for link in links:
+				openLink(link)
 
 		if cursor < 0: cursor = 0
 		if cursor >= len(lines): cursor = len(lines) - 1
